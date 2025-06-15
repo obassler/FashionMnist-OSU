@@ -40,33 +40,25 @@ class FashionMNISTModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        x = x.reshape(x.shape[0], -1)
-
         logits = self(x)
         loss = self.criterion(logits, y)
+        acc = (logits.argmax(dim=1) == y).float().mean()
 
-        preds = torch.argmax(logits, dim=1)
-        self.train_accuracy(preds, y)
-
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_acc', self.train_accuracy, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss', loss, on_epoch=True, prog_bar=True)
+        self.log('train_acc', acc, on_epoch=True, prog_bar=True)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        x = x.reshape(x.shape[0], -1)
-
         logits = self(x)
         loss = self.criterion(logits, y)
+        acc = (logits.argmax(dim=1) == y).float().mean()
 
-        preds = torch.argmax(logits, dim=1)
-        self.val_accuracy(preds, y)
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True)
+        self.log('val_acc', acc, on_epoch=True, prog_bar=True)
 
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_acc', self.val_accuracy, on_step=False, on_epoch=True, prog_bar=True)
-
-        return loss
+        return {'val_loss': loss, 'val_acc': acc}
 
     def test_step(self, batch, batch_idx):
         x, y = batch
