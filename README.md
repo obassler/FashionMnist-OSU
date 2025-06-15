@@ -115,19 +115,7 @@ This project was developed as part of a **Bachelor's thesis** at University of O
 - [x] Loss & accuracy tracking with TensorBoard
 - [ ] Loss surface visualization (2D/3D projections)
 - [ ] Add CLI or main.py entry point
-- [ ] Add experiment logging support (e.g. YAML config, wandb)
-
----
-
-## 📜 License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-## 🤝 Contributions
-
-Contributions are welcome! Please open an issue or pull request to improve the project or add more experiments.
+- [x] Add experiment logging support (e.g. YAML config, wandb) - Missing wandb - will update in later testing
 
 ---
 
