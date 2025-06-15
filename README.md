@@ -1,6 +1,6 @@
 # 🧠 FashionMNIST Loss Landscape Exploration
 
-![FashionMNIST Banner](https://raw.githubusercontent.com/obassler/FashionMnist-OSU/main/assets/banner.png)
+![FashionMNIST Banner]([https://raw.githubusercontent.com/obassler/FashionMnist-OSU/main/assets/banner.png](https://www.researchgate.net/publication/373046669/figure/fig1/AS:11431281180809965@1691723436709/The-FashionMNIST-dataset-consists-of-10-classes-of-monochrome-clothing-items-and-is.png))
 
 > A bachelor’s project focused on analyzing and visualizing the **loss landscape** of convolutional neural networks trained on the FashionMNIST dataset using PyTorch Lightning.
 
