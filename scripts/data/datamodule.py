@@ -6,13 +6,16 @@ from torch.utils.data import DataLoader, random_split
 
 
 class FashionMNISTDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size: int = 512, data_dir: str = "datasets/"):
+    def __init__(self, batch_size: int = 512, data_dir: str = "datasets/",
+                 num_workers: int = 4, pin_memory: bool = True):
         super().__init__()
         self.batch_size = batch_size
         self.data_dir = data_dir
+        self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
         self.transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
+            transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(10),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))
@@ -39,8 +42,11 @@ class FashionMNISTDataModule(pl.LightningDataModule):
             )
 
             self.train_dataset, self.val_dataset = random_split(
-                full_dataset, [self.train_size, self.val_size]
+                full_dataset, [self.train_size, self.val_size],
+                generator=torch.Generator().manual_seed(42)
             )
+
+            self.val_dataset.dataset.transform = self.test_transform
 
         if stage == "test" or stage is None:
             self.test_dataset = datasets.FashionMNIST(
@@ -54,7 +60,9 @@ class FashionMNISTDataModule(pl.LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=4
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True if self.num_workers > 0 else False
         )
 
     def val_dataloader(self):
@@ -62,7 +70,9 @@ class FashionMNISTDataModule(pl.LightningDataModule):
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=4
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True if self.num_workers > 0 else False
         )
 
     def test_dataloader(self):
@@ -70,5 +80,7 @@ class FashionMNISTDataModule(pl.LightningDataModule):
             self.test_dataset,
             batch_size=self.batch_size * 2,
             shuffle=False,
-            num_workers=4
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True if self.num_workers > 0 else False
         )

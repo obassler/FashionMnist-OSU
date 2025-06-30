@@ -1,124 +1,102 @@
-import argparse
-import os
-import sys
+import hydra
+from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping
-from pytorch_lightning.loggers import TensorBoardLogger
-import yaml
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 import logging
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.datamodule import FashionMNISTDataModule
 from models.lit_model import FashionMNISTModel
 
-
-def load_config(config_path):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(script_dir)
-    full_path = os.path.join(root_dir, config_path)
-
-    if not os.path.isfile(full_path):
-        raise FileNotFoundError(f"Config file not found: {full_path}")
-
-    with open(full_path, 'r') as file:
-        return yaml.safe_load(file)
+log = logging.getLogger(__name__)
 
 
-def setup_logging(log_path):
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_path),
-            logging.StreamHandler(sys.stdout)
-        ]
+@hydra.main(version_base=None, config_path="configs", config_name="default")
+def train(cfg: DictConfig) -> float:
+
+    log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
+
+    pl.seed_everything(cfg.training.seed, workers=True)
+
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        name=cfg.wandb.run_name,
+        tags=cfg.wandb.tags,
+        notes=cfg.wandb.notes,
+        save_dir=cfg.paths.log_dir,
+        log_model=cfg.wandb.log_model,
+        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     )
 
-
-def train_single_model(config, run_id=None):
     data_module = FashionMNISTDataModule(
-        batch_size=config['data']['batch_size'],
-        data_dir=config['data']['data_dir']
+        batch_size=cfg.data.batch_size,
+        data_dir=cfg.data.data_dir,
+        num_workers=cfg.data.num_workers
     )
 
     model = FashionMNISTModel(
-        input_size=config['model']['input_size'],
-        num_classes=config['model']['num_classes'],
-        learning_rate=config['training']['learning_rate'],
-        weight_decay=config['training']['weight_decay'],
-        max_lr=config['training']['max_lr']
+        input_size=cfg.model.input_size,
+        num_classes=cfg.model.num_classes,
+        learning_rate=cfg.training.learning_rate,
+        weight_decay=cfg.training.weight_decay,
+        max_lr=cfg.training.max_lr
     )
 
-    early_stopping = EarlyStopping(
-        monitor='val_acc',
-        mode='max',
-        patience=config['training']['patience'],
-        verbose=True
-    )
+    callbacks = []
 
-    logger = TensorBoardLogger(
-        save_dir=config['paths']['log_dir'],
-        name='fashion_mnist',
-        version=f'run_{run_id}' if run_id else None
-    )
+    if cfg.training.early_stopping.enable:
+        early_stopping = EarlyStopping(
+            monitor=cfg.training.early_stopping.monitor,
+            mode=cfg.training.early_stopping.mode,
+            patience=cfg.training.early_stopping.patience,
+            verbose=cfg.training.early_stopping.verbose
+        )
+        callbacks.append(early_stopping)
+
+    if cfg.training.checkpointing.enable:
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=cfg.paths.checkpoint_dir,
+            filename=cfg.training.checkpointing.filename,
+            monitor=cfg.training.checkpointing.monitor,
+            mode=cfg.training.checkpointing.mode,
+            save_top_k=cfg.training.checkpointing.save_top_k,
+            save_last=cfg.training.checkpointing.save_last,
+            verbose=cfg.training.checkpointing.verbose
+        )
+        callbacks.append(checkpoint_callback)
 
     trainer = pl.Trainer(
-        max_epochs=config['training']['num_epochs'],
-        callbacks=[early_stopping],
-        logger=logger,
-        accelerator='auto',
-        devices='auto',
-        deterministic=True,
-        enable_progress_bar=True,
-        log_every_n_steps=config['logging']['log_every_n_steps']
+        max_epochs=cfg.training.num_epochs,
+        accelerator=cfg.training.accelerator,
+        devices=cfg.training.devices,
+        callbacks=callbacks,
+        logger=wandb_logger,
+        deterministic=cfg.training.deterministic,
+        enable_progress_bar=cfg.training.enable_progress_bar,
+        log_every_n_steps=cfg.logging.log_every_n_steps,
+        val_check_interval=cfg.training.val_check_interval,
+        limit_train_batches=cfg.training.limit_train_batches,
+        limit_val_batches=cfg.training.limit_val_batches,
+        gradient_clip_val=cfg.training.gradient_clip_val,
+        accumulate_grad_batches=cfg.training.accumulate_grad_batches,
+        precision=cfg.training.precision
     )
 
-    trainer.fit(model, data_module)
+    trainer.fit(model, datamodule=data_module)
+
     trainer.test(model, datamodule=data_module)
 
-    return trainer, model
+    val_acc = trainer.callback_metrics.get("val_acc", 0.0)
+    if hasattr(val_acc, 'item'):
+        val_acc = val_acc.item()
+
+    wandb.log({"final_val_acc": val_acc})
+
+    wandb.finish()
+
+    return val_acc
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Train FashionMNIST model with PyTorch Lightning')
-    parser.add_argument('--config', type=str, default='configs/default.yaml', help='Path to config file')
-    parser.add_argument('--num_runs', type=int, default=1, help='Number of training runs to perform')
-    args = parser.parse_args()
-
-    config = load_config(args.config)
-
-    pl.seed_everything(config['training']['seed'])
-
-    os.makedirs(config['paths']['log_dir'], exist_ok=True)
-
-    log_file = os.path.join(config['paths']['log_dir'], 'training.log')
-    setup_logging(log_file)
-
-    results = []
-
-    for run_id in range(1, args.num_runs + 1):
-        logging.info(f"\n{'=' * 50}\nTraining Run {run_id}/{args.num_runs}\n{'=' * 50}")
-
-        trainer, model = train_single_model(config, run_id)
-
-        val_acc = trainer.callback_metrics.get('val_acc')
-        val_acc = val_acc.item() if val_acc is not None else 0.0
-
-        results.append({
-            'run_id': run_id,
-            'val_acc': val_acc,
-        })
-
-        logging.info(f"Run {run_id} completed. Best Validation Accuracy: {val_acc:.4f}")
-
-    if args.num_runs > 1:
-        logging.info(f"\n{'=' * 50}\nTRAINING SUMMARY\n{'=' * 50}")
-        for result in results:
-            logging.info(f"Run {result['run_id']}: Val Acc = {result['val_acc']:.4f}")
-        avg_acc = sum(r['val_acc'] for r in results) / len(results)
-        logging.info(f"\nAverage Validation Accuracy: {avg_acc:.4f}")
-
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    train()
