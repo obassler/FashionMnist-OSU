@@ -70,19 +70,19 @@ Plots and visualizations will be available in the `assets/` directory or via Ten
 > Python 3.9+ recommended
 
 ```txt
-torch>=2.0.0
-torchvision>=0.15.0
-pytorch-lightning>=2.0.0
-torchmetrics>=1.0.0
-tensorboard>=2.13.0
+torch>=1.12.0
+torchvision>=0.13.0
+pytorch-lightning>=1.8.0
+torchmetrics>=0.11.0
+hydra-core>=1.3.0
+omegaconf>=2.3.0
+wandb>=0.13.0
+numpy>=1.21.0
 matplotlib>=3.5.0
 seaborn>=0.11.0
-scikit-learn>=1.0.0
-numpy>=1.21.0
-pandas>=1.3.0
-PyYAML>=6.0
+hydra-optuna-sweeper>=1.2.0
+pyyaml>=6.0
 tqdm>=4.64.0
-Pillow>=9.0.0
 ```
 
 ---
@@ -92,11 +92,10 @@ Pillow>=9.0.0
 ```
 FashionMnist-OSU/
 │
-├── train.py                # Main training loop
-├── models/                 # CNN architecture + Lightning module
-├── data/                   # Data handling and transforms
-├── utils/                  # Helper functions and callbacks
-├── assets/                 # Plots and result visualizations
+├── train.py
+├── models/
+├── data/
+├── configs/
 ├── requirements.txt
 └── README.md
 ```
@@ -115,7 +114,8 @@ This project was developed as part of a **Bachelor's thesis** at University of O
 - [x] Loss & accuracy tracking with TensorBoard
 - [ ] Loss surface visualization (2D/3D projections)
 - [ ] Add CLI or main.py entry point
-- [x] Add experiment logging support (e.g. YAML config, wandb) - Missing wandb - will update in later testing
+- [x] Add experiment logging support (e.g. YAML config, wandb)
+- [x] Hydra sweeps functionality 
 
 ---
 
