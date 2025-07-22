@@ -16,7 +16,7 @@ training:
   learning_rate: 0.001
   weight_decay: 0.0001
   max_lr: 0.01
-  num_epochs: 10
+  num_epochs: 200
   accelerator: auto
   devices: 1
   deterministic: true
@@ -65,5 +65,20 @@ hydra:
       seed: 42
     direction: maximize
     study_name: fashion_mnist_optuna
-    n_trials: 20
+    n_trials: 100
     n_jobs: 1
+    search_space:
+      training.learning_rate:
+        type: float
+        low: 0.0001
+        high: 0.01
+        log: true
+      training.weight_decay:
+        type: float
+        low: 0.00001
+        high: 0.001
+        log: true
+      training.max_lr:
+        type: float
+        low: 0.01
+        high: 0.1
