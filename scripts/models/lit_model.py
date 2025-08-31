@@ -10,7 +10,7 @@ import wandb
 class FashionMNISTModel(pl.LightningModule):
     def __init__(self, input_size: int = 784, num_classes: int = 10,
                  learning_rate: float = 0.0001, weight_decay: float = 1e-4,
-                 max_lr: float = 0.01):
+                 max_lr: float = 0.01, total_steps: int = 0):
         super().__init__()
         self.save_hyperparameters()
 
@@ -111,7 +111,7 @@ class FashionMNISTModel(pl.LightningModule):
             'scheduler': torch.optim.lr_scheduler.OneCycleLR(
                 optimizer,
                 max_lr=self.hparams.max_lr,
-                total_steps=self.trainer.estimated_stepping_batches,
+                total_steps=self.hparams.total_steps,
             ),
             'interval': 'step',
             'frequency': 1

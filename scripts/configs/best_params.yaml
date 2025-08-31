@@ -1,0 +1,65 @@
+defaults:
+  - _self_
+  - override hydra/launcher: joblib
+
+model:
+  input_size: 784
+  num_classes: 10
+
+data:
+  batch_size: 64
+  data_dir: ./data
+  num_workers: 4
+
+training:
+  seed: 42
+  learning_rate: 0.0063359488139514445
+  weight_decay: 0.008912117369121994
+  max_lr: 0.01
+  num_epochs: 200
+  accelerator: auto
+  devices: 1
+  deterministic: true
+  enable_progress_bar: true
+  gradient_clip_val: 0.5
+  accumulate_grad_batches: 1
+  precision: 32
+  val_check_interval: 1.0
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+
+  early_stopping:
+    enable: true
+    monitor: val_loss
+    mode: min
+    patience: 3
+    verbose: true
+
+  checkpointing:
+    enable: true
+    filename: best-checkpoint-{hydra.job.num}
+    monitor: val_loss
+    mode: min
+    save_top_k: 1
+    save_last: true
+    verbose: true
+
+wandb:
+  project: fashion_mnist
+  run_name: best_params
+  tags: [joblib, parallel, best_params]
+  notes: "Parallel training with best hyperparameters and different seeds"
+  log_model: true
+
+paths:
+  log_dir: ./logs
+  checkpoint_dir: ./checkpoints
+
+logging:
+  log_every_n_steps: 10
+
+hydra:
+  launcher:
+    n_jobs: 5
+
+

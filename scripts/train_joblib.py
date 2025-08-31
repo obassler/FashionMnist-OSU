@@ -5,6 +5,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 import logging
+import os
 
 from data.datamodule import FashionMNISTDataModule
 from models.lit_model import FashionMNISTModel
@@ -12,18 +13,25 @@ from models.lit_model import FashionMNISTModel
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="best_params")
+@hydra.main(version_base=None, config_path="configs", config_name="default")
 def train(cfg: DictConfig) -> float:
+    # Each job will run in a unique directory created by Hydra.
+    # We can use this to our advantage for logging and checkpointing.
+    log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     pl.seed_everything(cfg.training.seed, workers=True)
 
+    # This combines the base name from your config with the specific seed and job number.
+    run_name = f"{cfg.wandb.run_name}_seed_{cfg.training.seed}_job_{hydra.core.hydra_config.HydraConfig.get().job.num}"
+
     wandb_logger = WandbLogger(
         project=cfg.wandb.project,
-        name=cfg.wandb.run_name,
+        name=run_name,
         tags=cfg.wandb.tags,
         notes=cfg.wandb.notes,
-        save_dir=cfg.paths.log_dir,
+        # Logs will be saved in a unique directory managed by the logger within Hydra's output folder
+        save_dir=".",
         log_model=cfg.wandb.log_model,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
     )
@@ -58,8 +66,10 @@ def train(cfg: DictConfig) -> float:
         callbacks.append(early_stopping)
 
     if cfg.training.checkpointing.enable:
+        # --- FIX 1: REMOVED `dirpath` ---
+        # ModelCheckpoint will now automatically save to the logger's directory,
+        # which is correctly placed inside the unique Hydra output folder.
         checkpoint_callback = ModelCheckpoint(
-            dirpath=cfg.paths.checkpoint_dir,
             filename=cfg.training.checkpointing.filename,
             monitor=cfg.training.checkpointing.monitor,
             mode=cfg.training.checkpointing.mode,
@@ -94,12 +104,16 @@ def train(cfg: DictConfig) -> float:
     if hasattr(val_acc, 'item'):
         val_acc = val_acc.item()
 
+    # The W&B logger will log this automatically. If you need it for other purposes, it's fine.
     wandb.log({"final_val_acc": val_acc})
 
-    wandb.finish()
+    # --- FIX 2: REMOVED `wandb.finish()` ---
+    # The WandbLogger will handle finishing the run automatically when the script ends.
+    # Calling it manually can interfere with the Joblib process cleanup.
 
     return val_acc
 
 
 if __name__ == "__main__":
     train()
+
