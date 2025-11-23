@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from hydra.core.hydra_config import HydraConfig
 import wandb
@@ -13,19 +13,28 @@ from models.lit_model import FashionMNISTModel
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="default")
+@hydra.main(version_base=None, config_path="configs", config_name="best_params")
 def train(cfg: DictConfig) -> float:
 
     log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     pl.seed_everything(cfg.training.seed, workers=True)
+    try:
+        if HydraConfig.get().job.num is not None and cfg.data.num_workers > 0:
+            log.warning(
+                "Multi-run job detected. Setting data.num_workers to 0 to avoid dataloader issues."
+            )
+            cfg.data.num_workers = 0
+    except (ValueError, AttributeError):
+        log.info("Running a single job. Using configured num_workers.")
+        pass
 
-    run_number = HydraConfig.get().job.num + 1
-    cfg.wandb.run_name = f"Optuna_sweep_{run_number}"
+
+    run_name = f"final_run_seed_{cfg.training.seed}"
 
     wandb_logger = WandbLogger(
         project=cfg.wandb.project,
-        name=cfg.wandb.run_name,
+        name=run_name,
         tags=cfg.wandb.tags,
         notes=cfg.wandb.notes,
         save_dir=cfg.paths.log_dir,
@@ -48,15 +57,6 @@ def train(cfg: DictConfig) -> float:
     )
 
     callbacks = []
-
-    if cfg.training.early_stopping.enable:
-        early_stopping = EarlyStopping(
-            monitor=cfg.training.early_stopping.monitor,
-            mode=cfg.training.early_stopping.mode,
-            patience=cfg.training.early_stopping.patience,
-            verbose=cfg.training.early_stopping.verbose
-        )
-        callbacks.append(early_stopping)
 
     if cfg.training.checkpointing.enable:
         checkpoint_callback = ModelCheckpoint(
