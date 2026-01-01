@@ -3,6 +3,7 @@ from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+from hydra.core.hydra_config import HydraConfig
 import wandb
 import logging
 
@@ -17,6 +18,9 @@ def train(cfg: DictConfig) -> float:
     log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     pl.seed_everything(cfg.training.seed, workers=True)
+
+    run_number = HydraConfig.get().job.num + 1
+    cfg.wandb.run_name = f"Optuna_sweep_{run_number}"
 
     wandb_logger = WandbLogger(
         project=cfg.wandb.project,
