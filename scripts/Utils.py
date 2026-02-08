@@ -1,7 +1,9 @@
 import os
+import argparse
 import torch
 import re
 import json
+
 
 def export_predictions_per_run(multirun_base_path, output_dir):
     os.makedirs(output_dir, exist_ok=True)
@@ -19,7 +21,7 @@ def export_predictions_per_run(multirun_base_path, output_dir):
                         file_path = os.path.join(run_path, file_name)
 
                         try:
-                            predictions_tensor = torch.load(file_path)
+                            predictions_tensor = torch.load(file_path, weights_only=True)
 
                             if isinstance(predictions_tensor, torch.Tensor):
                                 predictions_list = predictions_tensor.cpu().numpy().tolist()
@@ -42,6 +44,8 @@ def export_predictions_per_run(multirun_base_path, output_dir):
 
 
 if __name__ == '__main__':
-    multirun_path = '/mnt/data/Bassler/FashionMnist-OSU/scripts/multirun/2025-09-28/14-22-44'
-    output_dir = 'predictions'
-    export_predictions_per_run(multirun_path, output_dir)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--multirun-path', type=str, required=True)
+    parser.add_argument('--output-dir', type=str, default='predictions')
+    args = parser.parse_args()
+    export_predictions_per_run(args.multirun_path, args.output_dir)

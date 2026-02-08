@@ -3,8 +3,10 @@ from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+from hydra.core.hydra_config import HydraConfig
 import wandb
 import logging
+import torch
 import os
 
 from data.datamodule import FashionMNISTDataModule
@@ -15,22 +17,26 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def train(cfg: DictConfig) -> float:
-    # Each job will run in a unique directory created by Hydra.
-    # We can use this to our advantage for logging and checkpointing.
+    if wandb.run is not None:
+        wandb.finish()
+
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     pl.seed_everything(cfg.training.seed, workers=True)
 
-    # This combines the base name from your config with the specific seed and job number.
-    run_name = f"{cfg.wandb.run_name}_seed_{cfg.training.seed}_job_{hydra.core.hydra_config.HydraConfig.get().job.num}"
+    try:
+        job_num = HydraConfig.get().job.num
+    except (ValueError, AttributeError):
+        job_num = 0
+
+    run_name = f"{cfg.wandb.run_name}_seed_{cfg.training.seed}_job_{job_num}"
 
     wandb_logger = WandbLogger(
         project=cfg.wandb.project,
         name=run_name,
         tags=cfg.wandb.tags,
         notes=cfg.wandb.notes,
-        # Logs will be saved in a unique directory managed by the logger within Hydra's output folder
         save_dir=".",
         log_model=cfg.wandb.log_model,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
@@ -39,24 +45,22 @@ def train(cfg: DictConfig) -> float:
     data_module = FashionMNISTDataModule(
         batch_size=cfg.data.batch_size,
         data_dir=cfg.data.data_dir,
-        num_workers=cfg.data.num_workers
+        num_workers=cfg.data.num_workers,
+        seed=cfg.training.seed
     )
-
-    data_module.setup('fit')
-
-    total_steps = (data_module.train_size // cfg.data.batch_size) * cfg.training.num_epochs
 
     model = FashionMNISTModel(
         input_size=cfg.model.input_size,
         num_classes=cfg.model.num_classes,
+        learning_rate=cfg.training.learning_rate,
         weight_decay=cfg.training.weight_decay,
         max_lr=cfg.training.max_lr,
-        total_steps=total_steps
+        save_predictions_dir=None
     )
 
     callbacks = []
 
-    if cfg.training.early_stopping.enable:
+    if 'early_stopping' in cfg.training and cfg.training.early_stopping.get('enable', False):
         early_stopping = EarlyStopping(
             monitor=cfg.training.early_stopping.monitor,
             mode=cfg.training.early_stopping.mode,
@@ -66,16 +70,13 @@ def train(cfg: DictConfig) -> float:
         callbacks.append(early_stopping)
 
     if cfg.training.checkpointing.enable:
-        # --- FIX 1: REMOVED `dirpath` ---
-        # ModelCheckpoint will now automatically save to the logger's directory,
-        # which is correctly placed inside the unique Hydra output folder.
         checkpoint_callback = ModelCheckpoint(
             filename=cfg.training.checkpointing.filename,
             monitor=cfg.training.checkpointing.monitor,
             mode=cfg.training.checkpointing.mode,
             save_top_k=cfg.training.checkpointing.save_top_k,
-            save_last=cfg.training.checkpointing.save_last,
-            verbose=cfg.training.checkpointing.verbose
+            save_last=cfg.training.checkpointing.get('save_last', True),
+            verbose=cfg.training.checkpointing.get('verbose', True)
         )
         callbacks.append(checkpoint_callback)
 
@@ -98,22 +99,29 @@ def train(cfg: DictConfig) -> float:
 
     trainer.fit(model, datamodule=data_module)
 
-    trainer.test(model, datamodule=data_module)
+    test_results = trainer.test(model, datamodule=data_module)
 
-    val_acc = trainer.callback_metrics.get("val_acc", 0.0)
+    val_acc = trainer.callback_metrics.get("val_acc", torch.tensor(0.0))
     if hasattr(val_acc, 'item'):
         val_acc = val_acc.item()
 
-    # The W&B logger will log this automatically. If you need it for other purposes, it's fine.
-    wandb.log({"final_val_acc": val_acc})
+    final_test_acc = test_results[0]['test_acc'] if test_results else 0.0
+    final_test_loss = test_results[0]['test_loss'] if test_results else 0.0
 
-    # --- FIX 2: REMOVED `wandb.finish()` ---
-    # The WandbLogger will handle finishing the run automatically when the script ends.
-    # Calling it manually can interfere with the Joblib process cleanup.
+    log.info(f"Final Val Accuracy: {val_acc:.4f}")
+    log.info(f"Final Test Accuracy: {final_test_acc:.4f}")
+    log.info(f"Final Test Loss: {final_test_loss:.4f}")
+
+    wandb.log({
+        "final_val_acc": val_acc,
+        "final_test_acc": final_test_acc,
+        "final_test_loss": final_test_loss
+    })
+
+    wandb.finish()
 
     return val_acc
 
 
 if __name__ == "__main__":
     train()
-

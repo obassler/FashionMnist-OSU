@@ -1,4 +1,4 @@
-# 🧠 FashionMNIST Loss Landscape Exploration
+#  FashionMNIST Loss Landscape Exploration
 
 ![FashionMNIST Banner](https://user-images.githubusercontent.com/26833433/239359139-ce0a434e-9056-43e0-a306-3214f193dcce.png)
 
@@ -6,13 +6,13 @@
 
 ---
 
-## 📌 Overview
+##  Overview
 
 This repository explores how neural network optimization behaves in the context of **loss landscapes**. Using a CNN trained on the FashionMNIST dataset, we analyze curvature, convergence patterns, and training dynamics. The project leverages **modern PyTorch workflows**, advanced scheduling, and visualization tools to investigate deep learning behavior beyond just accuracy metrics.
 
 ---
 
-## 🛠️ Model Architecture
+##  Model Architecture
 
 A simple but effective CNN architecture:
 
@@ -30,7 +30,7 @@ Conv2d(1, 32, kernel_size=5) → BatchNorm → ReLU
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Clone the repo
@@ -45,27 +45,28 @@ source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 
 # Run training
+cd scripts
 python train.py
 ```
 
-> ⚠️ Make sure you have a GPU for faster training, although CPU works for experimentation.
+> Make sure you have a GPU for faster training, although CPU works for experimentation.
 
 ---
 
-## 🧪 Experiments
+##  Experiments
 
 This project is built around **experimenting with the loss landscape** of CNNs:
 
-- 📉 Training dynamics with **OneCycleLR**
-- 📊 Model accuracy tracked via `torchmetrics`
-- 📈 Visualizations (coming soon) using **Matplotlib**, **Seaborn**, and **TensorBoard**
-- 🧭 Exploring curvature and optimization smoothness
+-  Training dynamics with **OneCycleLR**
+-  Model accuracy tracked via `torchmetrics`
+-  Visualizations (coming soon) using **Matplotlib**, **Seaborn**, and **TensorBoard**
+-  Exploring curvature and optimization smoothness
 
 Plots and visualizations will be available in the `assets/` directory or via TensorBoard logs.
 
 ---
 
-## 📦 Requirements
+##  Requirements
 
 > Python 3.9+ recommended
 
@@ -87,39 +88,50 @@ tqdm>=4.64.0
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 FashionMnist-OSU/
 │
-├── train.py
-├── models/
-├── data/
-├── configs/
 ├── requirements.txt
-└── README.md
+├── README.md
+└── scripts/
+    ├── train.py
+    ├── train_joblib.py
+    ├── loss_landscape.py
+    ├── histogram.py
+    ├── matrix.py
+    ├── prediction_utils.py
+    ├── Utils.py
+    ├── configs/
+    │   ├── default.yaml
+    │   └── best_params.yaml
+    ├── data/
+    │   └── datamodule.py
+    └── models/
+        └── lit_model.py
 ```
 
 ---
 
-## 🎓 About
+##  About
 
 This project was developed as part of a **Bachelor's thesis** at University of Ostrava, focusing on improving understanding of deep learning dynamics via **loss landscape analysis**.
 
 ---
 
-## 📌 TODO / Roadmap
+##  TODO / Roadmap
 
 - [x] Basic CNN model training
 - [x] Loss & accuracy tracking with TensorBoard
-- [ ] Loss surface visualization (2D/3D projections)
+- [x] Loss surface visualization (2D/3D projections)
 - [ ] Add CLI or main.py entry point
 - [x] Add experiment logging support (e.g. YAML config, wandb)
 - [x] Hydra sweeps functionality 
 
 ---
 
-## 🙋‍♂️ Author
+##  Author
 
 **Ondřej Bassler**  
 [GitHub](https://github.com/obassler)
