@@ -91,12 +91,11 @@ def create_correlation_histogram(
 def main():
     # Configuration
     predictions_dir = "predictions"
-    num_files = 100
-    min_bins = 10  # Minimum number of bins
+    min_bins = 10
     output_path = "correlation_histogram.svg"
 
     print("Loading predictions...")
-    predictions = load_predictions(predictions_dir, num_files)
+    predictions = load_predictions(predictions_dir)
 
     if not predictions:
         print("ERROR: No predictions found. Cannot generate histogram.")

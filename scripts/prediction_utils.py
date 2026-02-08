@@ -4,20 +4,23 @@ from pathlib import Path
 from scipy.stats import pearsonr
 
 
-def load_predictions(predictions_dir: str, num_files: int = 100) -> list:
+def load_predictions(predictions_dir: str) -> list:
     predictions = []
+    predictions_path = Path(predictions_dir)
 
-    for i in range(num_files):
-        file_path = Path(predictions_dir) / f"{i}.json"
+    if not predictions_path.exists():
+        return predictions
+
+    json_files = sorted(predictions_path.glob("*.json"), key=lambda p: int(p.stem))
+
+    for file_path in json_files:
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
                 pred_array = data.get("test_predictions.pt", [])
                 if pred_array:
                     predictions.append(np.array(pred_array))
-        except FileNotFoundError:
-            pass
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             pass
 
     return predictions

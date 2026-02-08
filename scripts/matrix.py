@@ -82,11 +82,10 @@ def create_correlation_heatmap(
 
 def main():
     predictions_folder = "predictions"
-    num_files = 100
     output_path = "correlation_matrix.svg"
 
     print("Loading predictions...")
-    predictions = load_predictions(predictions_folder, num_files)
+    predictions = load_predictions(predictions_folder)
 
     if not predictions:
         print("ERROR: No predictions found.")
