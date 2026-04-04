@@ -1,5 +1,9 @@
+import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
 
 from prediction_utils import load_predictions, compute_correlation_matrix
 

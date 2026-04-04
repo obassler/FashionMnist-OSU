@@ -10,10 +10,12 @@ scripts/multirun/
 scripts/wandb/
 scripts/logs/
 
-
 *.npy
 *.npz
 
 scripts/data/FashionMNIST/
+scripts/landscape_models/
+scripts/landscape_trajectory/
+scripts/predictions/
 
 .idea/

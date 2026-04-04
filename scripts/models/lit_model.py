@@ -17,7 +17,8 @@ class FashionMNISTModel(pl.LightningModule):
         learning_rate: float = 0.0001,
         weight_decay: float = 1e-4,
         max_lr: float = 0.01,
-        save_predictions_dir: str = None
+        save_predictions_dir: str = None,
+        optimizer_name: str = "adamw",
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -116,11 +117,26 @@ class FashionMNISTModel(pl.LightningModule):
             self.log('epoch', float(self.current_epoch))
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(
-            self.parameters(),
-            lr=self.hparams.learning_rate,
-            weight_decay=self.hparams.weight_decay
-        )
+        name = self.hparams.optimizer_name.lower()
+        params = self.parameters()
+        lr = self.hparams.learning_rate
+        wd = self.hparams.weight_decay
+
+        if name == "adamw":
+            optimizer = optim.AdamW(params, lr=lr, weight_decay=wd)
+        elif name == "adam":
+            optimizer = optim.Adam(params, lr=lr, weight_decay=wd)
+        elif name == "sgd":
+            optimizer = optim.SGD(params, lr=lr, weight_decay=wd, momentum=0.9)
+        elif name == "rmsprop":
+            optimizer = optim.RMSprop(params, lr=lr, weight_decay=wd, momentum=0.9)
+        elif name == "vanilla":
+            optimizer = optim.SGD(params, lr=lr, weight_decay=0.0, momentum=0.0)
+        else:
+            raise ValueError(
+                f"Unknown optimizer: '{name}'. "
+                f"Supported: adamw, adam, sgd, rmsprop, vanilla"
+            )
 
         scheduler = {
             'scheduler': torch.optim.lr_scheduler.OneCycleLR(
