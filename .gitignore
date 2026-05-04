@@ -19,3 +19,6 @@ scripts/landscape_trajectory/
 scripts/predictions/
 
 .idea/
+.claude/
+data/
+Thesis/
