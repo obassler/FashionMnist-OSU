@@ -15,7 +15,6 @@ scripts/logs/
 
 scripts/data/FashionMNIST/
 scripts/landscape_models/
-scripts/landscape_trajectory/
 scripts/predictions/
 
 .idea/

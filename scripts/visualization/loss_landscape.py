@@ -10,7 +10,8 @@ from interpolation_1d import (
     plot_multi_optimizer_interpolation,
 )
 from landscape_2d import run_2d_landscape
-from pca_trajectory import run_pca_trajectory, plot_pca_trajectory
+from per_class import run_per_class
+from barrier_heatmap import run_barrier_heatmap, plot_barrier_heatmap
 
 
 def replot_from_cache(npz_dir: str, output_dir: str, optimizers):
@@ -30,12 +31,12 @@ def replot_from_cache(npz_dir: str, output_dir: str, optimizers):
             results, output_path=os.path.join(output_dir, "interpolation_multi_optimizer.svg"),
         )
 
-    pca_path = os.path.join(npz_dir, "pca_trajectory_data.npz")
-    if os.path.exists(pca_path):
-        data = np.load(pca_path)
-        plot_pca_trajectory(
-            data["projected"], data["epochs"].tolist(), data["explained_variance"],
-            output_path=os.path.join(output_dir, "pca_trajectory_2d.svg"),
+    barrier_path = os.path.join(npz_dir, "barrier_matrix_data.npz")
+    if os.path.exists(barrier_path):
+        data = np.load(barrier_path, allow_pickle=True)
+        plot_barrier_heatmap(
+            data["barriers"], data["endpoint_loss"], data["names"].tolist(),
+            output_path=os.path.join(output_dir, "barrier_heatmap.svg"),
         )
 
 
@@ -76,11 +77,32 @@ def main():
     p1d.add_argument("--max-batches", type=int, default=None)
     p1d.add_argument("--output-dir", default=".")
 
-    ppca = subparsers.add_parser("pca", help="PCA trajectory visualization")
-    ppca.add_argument("--checkpoint-dir", required=True)
-    ppca.add_argument("--output-dir", default=".")
+    pperclass = subparsers.add_parser(
+        "per-class",
+        help="Per-class disagreement heatmap + bar from 100 predictions",
+    )
+    pperclass.add_argument("--predictions-dir", default="../predictions")
+    pperclass.add_argument("--data-dir", default="./data")
+    pperclass.add_argument("--output-dir", default="../outputs")
 
-    preplot = subparsers.add_parser("replot", help="Replot SVGs from cached .npz files (multi-optimizer interp + PCA trajectory)")
+    pbarrier = subparsers.add_parser(
+        "barrier-heatmap",
+        help="Pairwise loss-barrier heatmap with BN recalibration",
+    )
+    pbarrier.add_argument("--base-dir", default="landscape_models")
+    pbarrier.add_argument(
+        "--optimizers", nargs="+",
+        default=["adam", "adamw", "rmsprop", "sgd", "vanilla"],
+    )
+    pbarrier.add_argument("--seeds", nargs="+", type=int, default=[0, 1])
+    pbarrier.add_argument("--data-dir", default="./data")
+    pbarrier.add_argument("--batch-size", type=int, default=256)
+    pbarrier.add_argument("--num-points", type=int, default=11)
+    pbarrier.add_argument("--bn-batches", type=int, default=20)
+    pbarrier.add_argument("--eval-batches", type=int, default=None)
+    pbarrier.add_argument("--output-dir", default="../outputs")
+
+    preplot = subparsers.add_parser("replot", help="Replot SVGs from cached .npz files (multi-optimizer interp + barrier heatmap)")
     preplot.add_argument("--npz-dir", default="../outputs")
     preplot.add_argument("--output-dir", default="../outputs")
     preplot.add_argument("--optimizers", nargs="+",
@@ -136,9 +158,22 @@ def main():
             label_a=args.label_a,
             label_b=args.label_b,
         )
-    elif args.command == "pca":
-        run_pca_trajectory(
-            checkpoint_dir=args.checkpoint_dir,
+    elif args.command == "per-class":
+        run_per_class(
+            predictions_dir=args.predictions_dir,
+            data_dir=args.data_dir,
+            output_dir=args.output_dir,
+        )
+    elif args.command == "barrier-heatmap":
+        run_barrier_heatmap(
+            base_dir=args.base_dir,
+            optimizers=args.optimizers,
+            seeds=args.seeds,
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            bn_batches=args.bn_batches,
+            eval_batches=args.eval_batches,
             output_dir=args.output_dir,
         )
     elif args.command == "replot":

@@ -66,8 +66,11 @@ python loss_landscape.py interp1d --checkpoint-a A.ckpt --checkpoint-b B.ckpt
 # 1D interpolation comparing several optimizers side by side
 python loss_landscape.py interp1d-multi --optimizers adam adamw sgd rmsprop vanilla
 
-# PCA projection of the training trajectory
-python loss_landscape.py pca --checkpoint-dir ../landscape_trajectory
+# Per-class disagreement heatmap + bar across the 100 trained models
+python loss_landscape.py per-class --predictions-dir ../predictions
+
+# Pairwise loss-barrier heatmap with batch-norm recalibration
+python loss_landscape.py barrier-heatmap --base-dir ../landscape_models
 
 # Replot SVGs from cached .npz outputs (no recomputation)
 python loss_landscape.py replot
@@ -137,14 +140,14 @@ FashionMnist-OSU/
     │   ├── common.py                # shared model/weight utilities
     │   ├── interpolation_1d.py
     │   ├── landscape_2d.py
-    │   ├── pca_trajectory.py
+    │   ├── per_class.py
+    │   ├── barrier_heatmap.py
     │   ├── histogram.py
     │   └── matrix.py
     ├── checkpoints/
     ├── outputs/
     ├── predictions/
-    ├── landscape_models/
-    └── landscape_trajectory/
+    └── landscape_models/
 ```
 
 ---
@@ -161,7 +164,7 @@ This project is part of a **Bachelor's thesis** at the University of Ostrava, fo
 - [x] Loss & accuracy tracking via Weights & Biases
 - [x] Loss surface visualization (2D / 3D projections)
 - [x] 1D interpolation and random-direction analysis
-- [x] PCA projection of training trajectory
+- [x] Per-class disagreement and BN-recalibrated loss-barrier matrix
 - [x] Multi-optimizer comparison
 - [x] Unified CLI entry point (`loss_landscape.py`)
 - [x] Hydra sweeps + parallel training (joblib)

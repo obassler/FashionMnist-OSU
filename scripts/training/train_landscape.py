@@ -1,19 +1,13 @@
 """
 Training script for loss landscape analysis.
 
-Trains models and saves the checkpoints needed for visualization:
-  1. Multiple models with different seeds → for 1D interpolation comparison
-  2. Per-epoch checkpoints for one model → for PCA trajectory visualization
+Trains multiple models with different seeds and saves the best checkpoint for
+each one. These checkpoints feed the 1D interpolation comparison and the
+prediction correlation analysis.
 
 Usage:
   # Train 8 models with different seeds (for 1D interpolation + correlation analysis)
   python train_landscape.py seeds --num-seeds 8
-
-  # Train one model and save every-epoch checkpoints (for PCA trajectory)
-  python train_landscape.py trajectory --seed 42
-
-  # Both at once
-  python train_landscape.py all --num-seeds 8 --trajectory-seed 42
 """
 
 import os
@@ -21,7 +15,7 @@ import sys
 import argparse
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -41,26 +35,9 @@ BEST_PARAMS = dict(
 )
 
 
-class EpochCheckpointCallback(Callback):
-    """Save a checkpoint at the end of every N epochs."""
-
-    def __init__(self, save_dir: str, every_n_epochs: int = 1):
-        self.save_dir = save_dir
-        self.every_n_epochs = every_n_epochs
-        os.makedirs(save_dir, exist_ok=True)
-
-    def on_train_epoch_end(self, trainer, pl_module):
-        epoch = trainer.current_epoch
-        if epoch % self.every_n_epochs == 0:
-            path = os.path.join(self.save_dir, f"epoch_{epoch}.ckpt")
-            trainer.save_checkpoint(path)
-
-
 def train_single_model(
     seed: int,
     output_dir: str,
-    save_epoch_checkpoints: bool = False,
-    epoch_checkpoint_interval: int = 1,
     num_epochs: int = BEST_PARAMS["num_epochs"],
     optimizer_name: str = "adamw",
 ):
@@ -103,16 +80,6 @@ def train_single_model(
     )
     callbacks.append(best_ckpt)
 
-    # Optionally save epoch checkpoints for PCA
-    if save_epoch_checkpoints:
-        epoch_dir = os.path.join(output_dir, "epoch_checkpoints")
-        epoch_cb = EpochCheckpointCallback(
-            save_dir=epoch_dir,
-            every_n_epochs=epoch_checkpoint_interval,
-        )
-        callbacks.append(epoch_cb)
-        print(f"Saving epoch checkpoints every {epoch_checkpoint_interval} epoch(s) to {epoch_dir}")
-
     trainer = pl.Trainer(
         max_epochs=num_epochs,
         accelerator="auto",
@@ -145,7 +112,6 @@ def train_multiple_seeds(num_seeds: int, base_output_dir: str, num_epochs: int, 
         test_acc, test_loss = train_single_model(
             seed=seed,
             output_dir=output_dir,
-            save_epoch_checkpoints=False,
             num_epochs=num_epochs,
             optimizer_name=optimizer_name,
         )
@@ -165,28 +131,12 @@ def train_multiple_seeds(num_seeds: int, base_output_dir: str, num_epochs: int, 
         print(f"  {path}")
 
 
-def train_trajectory(seed: int, output_dir: str, epoch_interval: int, num_epochs: int, optimizer_name: str = "adamw"):
-    """Train one model with per-epoch checkpoints for PCA visualization."""
-    train_single_model(
-        seed=seed,
-        output_dir=output_dir,
-        save_epoch_checkpoints=True,
-        epoch_checkpoint_interval=epoch_interval,
-        num_epochs=num_epochs,
-        optimizer_name=optimizer_name,
-    )
-    epoch_dir = os.path.join(output_dir, "epoch_checkpoints")
-    n_files = len([f for f in os.listdir(epoch_dir) if f.endswith(".ckpt")])
-    print(f"\nSaved {n_files} epoch checkpoints to: {epoch_dir}")
-    print(f"Use with: python loss_landscape.py pca --checkpoint-dir {epoch_dir}")
-
-
 def main():
     parser = argparse.ArgumentParser(description="Train models for loss landscape analysis")
     subparsers = parser.add_subparsers(dest="command")
 
     # Common optimizer help text
-    opt_help = "Optimizer to use: adamw, adam, sgd, rmsprop (default: adamw)"
+    opt_help = "Optimizer to use: adamw, adam, sgd, rmsprop, vanilla (default: adamw)"
 
     # Train multiple seeds
     p_seeds = subparsers.add_parser("seeds", help="Train N models with different seeds")
@@ -195,39 +145,10 @@ def main():
     p_seeds.add_argument("--num-epochs", type=int, default=BEST_PARAMS["num_epochs"])
     p_seeds.add_argument("--optimizer", default="adamw", help=opt_help)
 
-    # Train trajectory
-    p_traj = subparsers.add_parser("trajectory", help="Train one model with epoch checkpoints")
-    p_traj.add_argument("--seed", type=int, default=42)
-    p_traj.add_argument("--epoch-interval", type=int, default=5,
-                        help="Save checkpoint every N epochs (default=5, use 1 for full resolution)")
-    p_traj.add_argument("--output-dir", default="landscape_trajectory")
-    p_traj.add_argument("--num-epochs", type=int, default=BEST_PARAMS["num_epochs"])
-    p_traj.add_argument("--optimizer", default="adamw", help=opt_help)
-
-    # Both
-    p_all = subparsers.add_parser("all", help="Train seeds + trajectory")
-    p_all.add_argument("--num-seeds", type=int, default=8)
-    p_all.add_argument("--trajectory-seed", type=int, default=42)
-    p_all.add_argument("--epoch-interval", type=int, default=5)
-    p_all.add_argument("--output-dir", default="landscape_models")
-    p_all.add_argument("--num-epochs", type=int, default=BEST_PARAMS["num_epochs"])
-    p_all.add_argument("--optimizer", default="adamw", help=opt_help)
-
     args = parser.parse_args()
 
     if args.command == "seeds":
         train_multiple_seeds(args.num_seeds, args.output_dir, args.num_epochs, args.optimizer)
-    elif args.command == "trajectory":
-        train_trajectory(args.seed, args.output_dir, args.epoch_interval, args.num_epochs, args.optimizer)
-    elif args.command == "all":
-        train_multiple_seeds(args.num_seeds, args.output_dir, args.num_epochs, args.optimizer)
-        train_trajectory(
-            args.trajectory_seed,
-            os.path.join(args.output_dir, "trajectory"),
-            args.epoch_interval,
-            args.num_epochs,
-            args.optimizer,
-        )
     else:
         parser.print_help()
 
