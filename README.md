@@ -1,12 +1,25 @@
 # FashionMNIST Loss Landscape Exploration
 
-> A bachelor's project focused on analyzing and visualizing the **loss landscape** of convolutional neural networks trained on the FashionMNIST dataset using PyTorch Lightning.
+> A bachelor's thesis project (University of Ostrava) analyzing and visualizing the **loss landscape** of convolutional neural networks trained on FashionMNIST.
+
+![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-Lightning-792EE5?logo=pytorchlightning&logoColor=white)
+![Hydra](https://img.shields.io/badge/Config-Hydra-89b8cd)
+![Optuna](https://img.shields.io/badge/HPO-Optuna-2c5bb4)
+![W&B](https://img.shields.io/badge/Tracking-Weights%20%26%20Biases-FFBE00?logo=weightsandbiases&logoColor=black)
 
 ---
 
 ## Overview
 
-This repository explores how neural network optimization behaves in the context of **loss landscapes**. Using a CNN trained on FashionMNIST, we analyze curvature, convergence patterns, and training dynamics across different optimizers and seeds. The project leverages modern PyTorch workflows, Hydra-based configuration, and a suite of visualization tools to investigate deep learning behavior beyond accuracy metrics.
+This repository explores how neural network optimization behaves in the context of **loss landscapes**. A CNN is trained on FashionMNIST many times (different seeds and optimizers) and the resulting models are compared beyond plain accuracy:
+
+- **2D / 3D loss surfaces** around a trained model (with and without filter normalization)
+- **1D interpolation** between independently trained models and across optimizers (Adam, AdamW, SGD, RMSprop, vanilla SGD)
+- **Loss barriers** between pairs of models, with batch-norm recalibration
+- **Prediction disagreement** across 100 trained models, overall and per class
+
+Best validation accuracy of a single model: **~91.9 %**.
 
 ---
 
@@ -15,9 +28,9 @@ This repository explores how neural network optimization behaves in the context 
 A simple but effective CNN:
 
 ```
-Conv2d(1, 32, kernel_size=5) → BatchNorm → ReLU
-→ Conv2d(32, 64, kernel_size=5) → BatchNorm → ReLU
-→ Flatten → Linear(1024, 128) → ReLU
+Conv2d(1, 32, kernel_size=5) → BatchNorm → ReLU → MaxPool(2)
+→ Conv2d(32, 64, kernel_size=5) → BatchNorm → ReLU → MaxPool(2)
+→ Flatten → Linear(64·4·4 = 1024, 128) → ReLU
 → Linear(128, 64) → ReLU
 → Linear(64, 10)
 ```
@@ -25,6 +38,15 @@ Conv2d(1, 32, kernel_size=5) → BatchNorm → ReLU
 - **Loss**: CrossEntropyLoss
 - **Optimizer**: AdamW
 - **Scheduler**: OneCycleLR
+- **Training**: 16-bit mixed precision, gradient clipping, gradient accumulation, deterministic seeds
+
+---
+
+## Experiment Pipeline
+
+1. **Hyperparameter search** – Hydra + Optuna sweeper (TPE sampler, 100 trials) over learning rate, weight decay, max LR and gradient clipping (`configs/default.yaml`).
+2. **Final training** – best parameters (`configs/best_params.yaml`) trained across many seeds in parallel via the Hydra joblib launcher.
+3. **Analysis** – checkpoints and predictions feed the visualization CLI below. All runs are logged to Weights & Biases.
 
 ---
 
@@ -89,27 +111,7 @@ Outputs land in `scripts/outputs/` (figures + cached `.npz` data).
 
 ## Requirements
 
-> Python 3.9+ recommended
-
-```txt
-torch>=1.12.0
-torchvision>=0.13.0
-pytorch-lightning>=1.8.0
-torchmetrics>=0.11.0
-hydra-core>=1.3.0
-hydra-optuna-sweeper>=1.2.0
-hydra-joblib-launcher
-omegaconf>=2.3.0
-wandb>=0.13.0
-numpy>=1.21.0
-scipy>=1.7.0
-scikit-learn>=1.0.0
-matplotlib>=3.5.0
-seaborn>=0.11.0
-plotly>=5.0.0
-pyyaml>=6.0
-tqdm>=4.64.0
-```
+Python 3.9+ (developed on 3.10). All dependencies are listed in [`requirements.txt`](requirements.txt).
 
 ---
 
@@ -149,12 +151,6 @@ FashionMnist-OSU/
     ├── predictions/
     └── landscape_models/
 ```
-
----
-
-## About
-
-This project is part of a **Bachelor's thesis** at the University of Ostrava, focused on improving understanding of deep learning dynamics through **loss landscape analysis**.
 
 ---
 
